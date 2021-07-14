@@ -169,7 +169,7 @@ class Strategy(ABC):
         self._backtesting = False
         return self._results
 
-    def plot_results(self, filename:str, show=False, backend='matplotlib'):
+    def plot_results(self, filename:str=None, show=False, backend='matplotlib'):
         """
         Plot the results of the backtest.
         """
@@ -201,7 +201,8 @@ class Strategy(ABC):
                 else:
                     ax2.axvspan(trade[0], trade[1], color='r', alpha=0.1)
 
-            plt.savefig(f'{filename}.png')
+            if filename:
+                plt.savefig(f'{filename}.png')
             if show:
                 plt.show()
 
@@ -209,8 +210,14 @@ class Strategy(ABC):
             import plotly.graph_objs as go
             from plotly.subplots import make_subplots
 
-            fig = make_subplots(rows=2, cols=1, shared_xaxes=False,
-                                subplot_titles=('Portfolio Balance', 'Closing Price w/ Trades overlayed'))
+            fig = make_subplots(rows=3, cols=1, shared_xaxes=False,
+                                subplot_titles=('Portfolio Balance', 'Closing Price w/ Trades overlayed'),
+                                specs=[
+                                    [{'type': 'xy'}],
+                                    [{'type': 'xy'}],
+                                    [{'type': 'table'}]
+                                    ]
+                                )
 
             # Plot the portfolio balance
             portfolio_balance = go.Scatter(x=[x[0] for x in self._results['portfolio_balance']],
@@ -225,7 +232,6 @@ class Strategy(ABC):
             fig.append_trace(close_trace, 2, 1)
             
             trades = self._results['trades']
-            # .strftime("%Y-%m-%d")
             for trade in trades:
                 if trade[2] >= 0:
                     fig.add_vrect(
@@ -245,10 +251,33 @@ class Strategy(ABC):
                         row=2, col=1
                     )
 
+            # Create table showing summary statistics
+            table = go.Table(
+                header=dict(values=['Statistic', 'Value']),
+                cells=dict(values=[['Number of Trades', len(trades)],
+                                   ['Initial Balance', self._results['initial_balance']],
+                                   ['Final Balance', self._results['balance']],
+                                   ['Profit %', (self._results['balance'] - self._results['initial_balance']) / self._results['initial_balance'] * 100],
+                                   ['Buy and Hold %', closes.iloc[-1] - closes.iloc[0] / closes.iloc[0] * 100]
+                                   ['Average Trade %', sum([x[2] for x in trades]) / len(trades) * 100],
+                                ],
+
+                        )
+            )
+            fig.append_trace(table, 3, 1)
+
+            if filename:
+                fig.write_image(f'{filename}.png')
+            if show:
+                fig.show()
+            )
+
 
 
             fig['layout'].update(title='Backtest Results')
 
             if show:
-                fig.write_html(f'{filename}.html', auto_open=True)
+                fig.show()
 
+            if filename:
+                fig.write_html(f'{filename}.html', auto_open=True)

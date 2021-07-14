@@ -178,7 +178,7 @@ class Strategy(ABC):
         self._results['balance'] = balance
         return self._results
 
-    def plot_results(self, filename: str = None, show=False, backend='matplotlib') -> None:
+    def plot_results(self, filename: str = None, show=False, backend='plotly', plot_indicators=False, plot_table=False) -> None:
         """
         Plot the results of the backtest.
 
@@ -187,7 +187,7 @@ class Strategy(ABC):
 
         :param show: bool
             Whether to show the plot.
-        
+
         :param backend: str
             The backend to use. Valid options are 'matplotlib' and 'plotly'.
 
@@ -200,30 +200,45 @@ class Strategy(ABC):
         if backend == 'matplotlib':
             import matplotlib.pyplot as plt
 
-            fig, (ax, ax2) = plt.subplots(2, 1, sharex=False, figsize=(15, 10))
+            num_rows = sum([
+                2,  # Default plots
+                len(self._indicator_functions) if plot_indicators else 0,
+            ])
+
+            fig, axs = plt.subplots(
+                num_rows, 1, sharex=False, figsize=(15, 10))
+
+            fig.tight_layout(h_pad=5)
 
             # Plot the portfolio balance
-            ax.set_title("Portfolio Balance")
+            axs[0].set_title("Portfolio Balance")
             portfolio_balance = pd.Series([x[1] for x in self._results['portfolio_balance']], index=[
                                           x[0] for x in self._results['portfolio_balance']], name='Balance')
-            portfolio_balance.plot(ax=ax)
+            portfolio_balance.plot(ax=axs[0])
 
             # Plot the trades and the close price
-            ax2.set_title("Closing Price")
+            axs[1].set_title("Closing Price")
             closes = self._viewable_data['close']
-            closes.plot(ax=ax2)
+            closes.plot(ax=axs[1])
 
             trades = self._results['trades']
-            ax2.vlines(x=[x[0] for x in trades], ymin=min(
+            axs[1].vlines(x=[x[0] for x in trades], ymin=min(
                 closes), ymax=max(closes), color='b')
-            ax2.vlines(x=[x[1] for x in trades], ymin=min(
+            axs[1].vlines(x=[x[1] for x in trades], ymin=min(
                 closes), ymax=max(closes), color='r')
 
             for trade in trades:
                 if trade[2] >= 0:
-                    ax2.axvspan(trade[0], trade[1], color='g', alpha=0.1)
+                    axs[1].axvspan(trade[0], trade[1], color='g', alpha=0.1)
                 else:
-                    ax2.axvspan(trade[0], trade[1], color='r', alpha=0.1)
+                    axs[1].axvspan(trade[0], trade[1], color='r', alpha=0.1)
+
+            # Plot the indicators
+            if plot_indicators:
+                for i, indicator_name in enumerate(self._indicator_functions, start=2):
+                    data = self._viewable_data[indicator_name]
+                    axs[i].set_title(indicator_name)
+                    data.plot(ax=axs[i])
 
             if filename:
                 plt.savefig(f'{filename}.png')
@@ -234,7 +249,13 @@ class Strategy(ABC):
             import plotly.graph_objs as go
             from plotly.subplots import make_subplots
 
-            fig = make_subplots(rows=3, cols=1, shared_xaxes=False,
+            num_rows = sum([
+                2,  # Default plots
+                len(self._indicator_functions) if plot_indicators else 0,
+                plot_table,
+            ])
+
+            fig = make_subplots(rows=num_rows, cols=1, shared_xaxes=False,
                                 subplot_titles=(
                                     'Portfolio Balance', 'Closing Price w/ Trades overlayed'),
                                 specs=[
@@ -283,20 +304,24 @@ class Strategy(ABC):
                 header=dict(values=['Statistic', 'Value']),
                 cells=dict(values=[
                     [
-                        "Number of Trades made", 
-                        "Initial Balance", 
-                        "Final Balance", 
-                        "Profit/Loss", 
-                        "Buy/Hold %", 
+                        "Number of Trades made",
+                        "Initial Balance",
+                        "Final Balance",
+                        "Profit/Loss",
+                        "Buy/Hold %",
                         "Profit/Loss %"
                     ],
                     [
-                        len(trades), # Number of Trades
-                        self._results['initial_balance'], # Initial Balance
-                        self._results['balance'], # Final balance
-                        (self._results['balance'] - self._results['initial_balance']), # Profit/loss
-                        (closes.iloc[-1] - closes.iloc[0]) / closes.iloc[0] * 100, # Buy/Hold %
-                        (self._results['balance'] - self._results['initial_balance']) / self._results['initial_balance'] * 100, # Profit/Loss %
+                        len(trades),  # Number of Trades
+                        self._results['initial_balance'],  # Initial Balance
+                        self._results['balance'],  # Final balance
+                        # Profit/loss
+                        (self._results['balance'] - \
+                         self._results['initial_balance']),
+                        (closes.iloc[-1] - closes.iloc[0]) / \
+                        closes.iloc[0] * 100,  # Buy/Hold %
+                        (self._results['balance'] - self._results['initial_balance']
+                         ) / self._results['initial_balance'] * 100,  # Profit/Loss %
                     ]
                 ])
             )

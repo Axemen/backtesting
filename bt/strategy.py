@@ -111,7 +111,7 @@ class Strategy(ABC):
         """
         Backtest the strategy.
 
-        :return: BacktestResult
+        :return: dict
         """
 
         # TODO add way to specify how much to buy or sell
@@ -178,9 +178,20 @@ class Strategy(ABC):
         self._results['balance'] = balance
         return self._results
 
-    def plot_results(self, filename: str = None, show=False, backend='matplotlib'):
+    def plot_results(self, filename: str = None, show=False, backend='matplotlib') -> None:
         """
         Plot the results of the backtest.
+
+        :param filename: str
+            The filename to save the plot to. If None, the plot will not be saved.
+
+        :param show: bool
+            Whether to show the plot.
+        
+        :param backend: str
+            The backend to use. Valid options are 'matplotlib' and 'plotly'.
+
+        :return: None
         """
         # Ensure there are backtest results
         assert getattr(

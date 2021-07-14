@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 
 
@@ -19,7 +18,7 @@ class Strategy(ABC):
     Define a Strategy base class that will be inherited from to define backtesting strategies.
     """
 
-    def __init__(self, data: pd.DataFrame, start_index=0):
+    def __init__(self, data: pd.DataFrame, start_index=None):
         """
         :param data: pandas.Series
             The data to use when backtesting the strategy.
@@ -32,7 +31,11 @@ class Strategy(ABC):
         assert 'close' in data.columns, "data must have a 'close' column"
 
         self._all_data = data
-        self._start_index = start_index
+
+        if start_index is None:
+            self._start_index = self._all_data.iloc[0].index
+        else:
+            self._start_index = start_index
 
         self._indicator_functions = {}
         self._backtesting = False
@@ -152,7 +155,7 @@ class Strategy(ABC):
                 if signal == Signal.SELL:
                     is_trade_open = False
                     self._results['trades'].append((open_trade['index'], index,
-                                                    open_trade['price'] - row['close']))
+                                                    row['close'] - open_trade['price']))
                     balance += open_trade['num_shares'] * row['close']
                     open_trade = {}
 
@@ -165,3 +168,87 @@ class Strategy(ABC):
 
         self._backtesting = False
         return self._results
+
+    def plot_results(self, filename:str, show=False, backend='matplotlib'):
+        """
+        Plot the results of the backtest.
+        """
+        # Ensure there are backtest results
+        assert getattr(self, "_results"), "Backtesting must be run before plotting results"
+
+        if backend == 'matplotlib':
+            import matplotlib.pyplot as plt
+
+            fig, (ax, ax2) = plt.subplots(2, 1, sharex=False, figsize=(15, 10))
+
+            # Plot the portfolio balance
+            ax.set_title("Portfolio Balance")
+            portfolio_balance = pd.Series([x[1] for x in self._results['portfolio_balance']], index=[x[0] for x in self._results['portfolio_balance']], name='Balance')
+            portfolio_balance.plot(ax=ax)
+
+            # Plot the trades and the close price
+            ax2.set_title("Closing Price")
+            closes = self._viewable_data['close']
+            closes.plot(ax=ax2)
+
+            trades = self._results['trades']
+            ax2.vlines(x=[x[0] for x in trades], ymin=min(closes), ymax=max(closes), color='b')
+            ax2.vlines(x=[x[1] for x in trades], ymin=min(closes), ymax=max(closes), color='r')
+
+            for trade in trades:
+                if trade[2] >= 0:
+                    ax2.axvspan(trade[0], trade[1], color='g', alpha=0.1)
+                else:
+                    ax2.axvspan(trade[0], trade[1], color='r', alpha=0.1)
+
+            plt.savefig(f'{filename}.png')
+            if show:
+                plt.show()
+
+        elif backend == 'plotly':
+            import plotly.graph_objs as go
+            from plotly.subplots import make_subplots
+
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=False,
+                                subplot_titles=('Portfolio Balance', 'Closing Price w/ Trades overlayed'))
+
+            # Plot the portfolio balance
+            portfolio_balance = go.Scatter(x=[x[0] for x in self._results['portfolio_balance']],
+                                           y=[x[1] for x in self._results['portfolio_balance']],
+                                           name='Balance')
+
+            fig.append_trace(portfolio_balance, 1, 1)
+
+            # Plot the trades and the close price
+            closes = self._viewable_data['close']
+            close_trace = go.Scatter(x=closes.index, y=closes.values, name='Close')
+            fig.append_trace(close_trace, 2, 1)
+            
+            trades = self._results['trades']
+            # .strftime("%Y-%m-%d")
+            for trade in trades:
+                if trade[2] >= 0:
+                    fig.add_vrect(
+                        x0=trade[0], x1=trade[1],
+                        fillcolor="green", opacity=0.25,
+                        layer="below", line_width=0,
+                        annotation_text="Buy", annotation_position="top left",
+                        row=2, col=1
+                    )
+
+                else:
+                    fig.add_vrect(
+                        x0=trade[0], x1=trade[1],
+                        fillcolor="red", opacity=0.25,
+                        layer="below", line_width=0,
+                        annotation_text="Sell", annotation_position="top left",
+                        row=2, col=1
+                    )
+
+
+
+            fig['layout'].update(title='Backtest Results')
+
+            if show:
+                fig.write_html(f'{filename}.html', auto_open=True)
+

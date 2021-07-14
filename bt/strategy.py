@@ -162,9 +162,17 @@ class Strategy(ABC):
             # Update the portfolio balance
             if is_trade_open:
                 self._results['portfolio_balance'].append((index,
-                                                           balance + row['close'] * open_trade['num_shares']))
+                                                           balance + (row['close'] * open_trade['num_shares'])))
             else:
                 self._results['portfolio_balance'].append((index, balance))
+
+        # Sell at end of data
+        if is_trade_open:
+            is_trade_open = False
+            self._results['trades'].append((open_trade['index'], index,
+                                            row['close'] - open_trade['price']))
+            balance += open_trade['num_shares'] * row['close']
+            open_trade = {}
 
         self._backtesting = False
         self._results['balance'] = balance

@@ -136,9 +136,9 @@ class Strategy(ABC):
             'num_shares': 0
         }
 
-        self._viewable_data = pd.DataFrame(columns=self._all_data.columns)
+        self._viewable_data = self._all_data[:self._start_index]
 
-        for index, row in tqdm(self._all_data.iterrows(), disable=not verbose, total=len(self._all_data)):
+        for index, row in tqdm(self._all_data[self._start_index:].iterrows(), disable=not verbose, total=len(self._all_data)):
             self._viewable_data.loc[index] = row
             # Calculate the signals
             signal = self.get_signal()
@@ -169,12 +169,13 @@ class Strategy(ABC):
         self._backtesting = False
         return self._results
 
-    def plot_results(self, filename:str=None, show=False, backend='matplotlib'):
+    def plot_results(self, filename: str = None, show=False, backend='matplotlib'):
         """
         Plot the results of the backtest.
         """
         # Ensure there are backtest results
-        assert getattr(self, "_results"), "Backtesting must be run before plotting results"
+        assert getattr(
+            self, "_results"), "Backtesting must be run before plotting results"
 
         if backend == 'matplotlib':
             import matplotlib.pyplot as plt
@@ -183,7 +184,8 @@ class Strategy(ABC):
 
             # Plot the portfolio balance
             ax.set_title("Portfolio Balance")
-            portfolio_balance = pd.Series([x[1] for x in self._results['portfolio_balance']], index=[x[0] for x in self._results['portfolio_balance']], name='Balance')
+            portfolio_balance = pd.Series([x[1] for x in self._results['portfolio_balance']], index=[
+                                          x[0] for x in self._results['portfolio_balance']], name='Balance')
             portfolio_balance.plot(ax=ax)
 
             # Plot the trades and the close price
@@ -192,8 +194,10 @@ class Strategy(ABC):
             closes.plot(ax=ax2)
 
             trades = self._results['trades']
-            ax2.vlines(x=[x[0] for x in trades], ymin=min(closes), ymax=max(closes), color='b')
-            ax2.vlines(x=[x[1] for x in trades], ymin=min(closes), ymax=max(closes), color='r')
+            ax2.vlines(x=[x[0] for x in trades], ymin=min(
+                closes), ymax=max(closes), color='b')
+            ax2.vlines(x=[x[1] for x in trades], ymin=min(
+                closes), ymax=max(closes), color='r')
 
             for trade in trades:
                 if trade[2] >= 0:
@@ -211,26 +215,29 @@ class Strategy(ABC):
             from plotly.subplots import make_subplots
 
             fig = make_subplots(rows=3, cols=1, shared_xaxes=False,
-                                subplot_titles=('Portfolio Balance', 'Closing Price w/ Trades overlayed'),
+                                subplot_titles=(
+                                    'Portfolio Balance', 'Closing Price w/ Trades overlayed'),
                                 specs=[
                                     [{'type': 'xy'}],
                                     [{'type': 'xy'}],
                                     [{'type': 'table'}]
-                                    ]
+                                ]
                                 )
 
             # Plot the portfolio balance
             portfolio_balance = go.Scatter(x=[x[0] for x in self._results['portfolio_balance']],
-                                           y=[x[1] for x in self._results['portfolio_balance']],
+                                           y=[x[1]
+                                               for x in self._results['portfolio_balance']],
                                            name='Balance')
 
             fig.append_trace(portfolio_balance, 1, 1)
 
             # Plot the trades and the close price
             closes = self._viewable_data['close']
-            close_trace = go.Scatter(x=closes.index, y=closes.values, name='Close')
+            close_trace = go.Scatter(
+                x=closes.index, y=closes.values, name='Close')
             fig.append_trace(close_trace, 2, 1)
-            
+
             trades = self._results['trades']
             for trade in trades:
                 if trade[2] >= 0:
@@ -255,14 +262,18 @@ class Strategy(ABC):
             table = go.Table(
                 header=dict(values=['Statistic', 'Value']),
                 cells=dict(values=[['Number of Trades', len(trades)],
-                                   ['Initial Balance', self._results['initial_balance']],
+                                   ['Initial Balance',
+                                       self._results['initial_balance']],
                                    ['Final Balance', self._results['balance']],
-                                   ['Profit %', (self._results['balance'] - self._results['initial_balance']) / self._results['initial_balance'] * 100],
-                                   ['Buy and Hold %', closes.iloc[-1] - closes.iloc[0] / closes.iloc[0] * 100]
-                                   ['Average Trade %', sum([x[2] for x in trades]) / len(trades) * 100],
-                                ],
+                                   ['Profit %', (self._results['balance'] - self._results['initial_balance']
+                                                 ) / self._results['initial_balance'] * 100],
+                                   ['Buy and Hold %', closes.iloc[-1] -
+                                       closes.iloc[0] / closes.iloc[0] * 100]
+                                   ['Average Trade %', sum(
+                                       [x[2] for x in trades]) / len(trades) * 100],
+                                   ],
 
-                        )
+                           )
             )
             fig.append_trace(table, 3, 1)
 
@@ -270,9 +281,6 @@ class Strategy(ABC):
                 fig.write_image(f'{filename}.png')
             if show:
                 fig.show()
-            )
-
-
 
             fig['layout'].update(title='Backtest Results')
 

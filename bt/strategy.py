@@ -33,7 +33,7 @@ class Strategy(ABC):
         self._all_data = data
 
         if start_index is None:
-            self._start_index = self._all_data.iloc[0].index
+            self._start_index = self._all_data.index[0]
         else:
             self._start_index = start_index
 
@@ -136,9 +136,9 @@ class Strategy(ABC):
             'num_shares': 0
         }
 
-        self._viewable_data = self._all_data[:self._start_index]
+        self._viewable_data = self._all_data.loc[:self._start_index].copy()
 
-        for index, row in tqdm(self._all_data[self._start_index:].iterrows(), disable=not verbose, total=len(self._all_data)):
+        for index, row in tqdm(self._all_data.loc[self._start_index:].iterrows(), disable=not verbose, total=len(self._all_data)):
             self._viewable_data.loc[index] = row
             # Calculate the signals
             signal = self.get_signal()
@@ -167,6 +167,7 @@ class Strategy(ABC):
                 self._results['portfolio_balance'].append((index, balance))
 
         self._backtesting = False
+        self._results['balance'] = balance
         return self._results
 
     def plot_results(self, filename: str = None, show=False, backend='matplotlib'):
@@ -261,26 +262,26 @@ class Strategy(ABC):
             # Create table showing summary statistics
             table = go.Table(
                 header=dict(values=['Statistic', 'Value']),
-                cells=dict(values=[['Number of Trades', len(trades)],
-                                   ['Initial Balance',
-                                       self._results['initial_balance']],
-                                   ['Final Balance', self._results['balance']],
-                                   ['Profit %', (self._results['balance'] - self._results['initial_balance']
-                                                 ) / self._results['initial_balance'] * 100],
-                                   ['Buy and Hold %', closes.iloc[-1] -
-                                       closes.iloc[0] / closes.iloc[0] * 100]
-                                   ['Average Trade %', sum(
-                                       [x[2] for x in trades]) / len(trades) * 100],
-                                   ],
-
-                           )
+                cells=dict(values=[
+                    [
+                        "Number of Trades made", 
+                        "Initial Balance", 
+                        "Final Balance", 
+                        "Profit/Loss", 
+                        "Buy/Hold %", 
+                        "Profit/Loss %"
+                    ],
+                    [
+                        len(trades), # Number of Trades
+                        self._results['initial_balance'], # Initial Balance
+                        self._results['balance'], # Final balance
+                        (self._results['balance'] - self._results['initial_balance']), # Profit/loss
+                        (closes.iloc[-1] - closes.iloc[0]) / closes.iloc[0] * 100, # Buy/Hold %
+                        (self._results['balance'] - self._results['initial_balance']) / self._results['initial_balance'] * 100, # Profit/Loss %
+                    ]
+                ])
             )
             fig.append_trace(table, 3, 1)
-
-            if filename:
-                fig.write_image(f'{filename}.png')
-            if show:
-                fig.show()
 
             fig['layout'].update(title='Backtest Results')
 

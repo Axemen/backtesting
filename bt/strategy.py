@@ -37,7 +37,7 @@ class Strategy(ABC):
         else:
             self._start_index = start_index
 
-        self._indicator_functions = {}
+        self._indicator_functions = []
         self._backtesting = False
 
     @property
@@ -61,30 +61,46 @@ class Strategy(ABC):
         """
         raise NotImplementedError("Should implement is_sell()")
 
-    def add_indicator(self, name: str, indicator: function) -> None:
+    def add_indicator(self, indicator: function, name: str = None) -> None:
         """
         Add an indicator to the strategy
 
-        the given function should take in the Strategy.data DataFrame and return a pandas.Series.
+        the given function should take in the Strategy.data DataFrame and return a pandas.Series or pandas.DataFrame.
         the returned series will be added as a column to the Strategy.data as the column `name`.
-
-        :param name: str
-            The name of the indicator
 
         :param indicator: function
             The indicator function. 
+
+        :param name: str
+            The name of the indicator column in the data.
+            If not given, the name/columns of the series/dataframe will be used.
         """
-        self._indicator_functions[name] = indicator
+        self._indicator_functions.append((name, indicator))
 
     def _calculate_indicators(self) -> None:
         """
-        Calculate indicators
-
-        :param close: float
-            The close price of the current bar.
+        Calculate indicators and add them as columns to the strategy._all_data DataFrame.
         """
-        for indicator_name, indicator in self._indicator_functions.items():
-            self._all_data[indicator_name] = indicator(self._all_data)
+        for indicator_name, indicator in self._indicator_functions:
+            result = indicator(self._all_data)
+            if isinstance(result, pd.Series):   # if indicator returns a series
+                if indicator_name is None:
+                    indicator_name = result.name
+                    assert indicator_name not in self._all_data.columns, "Indicator name already exists"
+                self._all_data[indicator_name] = result
+
+            elif isinstance(result, pd.DataFrame):
+                if indicator_name is None:
+                    indicator_name = result.columns
+
+                    for indicator in result.columns:
+                        assert indicator not in self._all_data.columns, "Indicator name already exists"
+
+                    self._all_data[indicator_name] = result.values
+
+            else:
+                raise ValueError(
+                    "Indicator must return a pandas.Series or pandas.DataFrame")
 
     def _update(self, close, index) -> None:
         """
@@ -312,7 +328,8 @@ class Strategy(ABC):
                 for indicator_name in indicator_set:
                     data = self._viewable_data[indicator_name]
                     fig.append_trace(
-                        go.Scatter(x=data.index, y=data.values, name=indicator_name), row, 1
+                        go.Scatter(x=data.index, y=data.values,
+                                   name=indicator_name), row, 1
                     )
 
             # Create table showing summary statistics
@@ -330,15 +347,16 @@ class Strategy(ABC):
                         ],
                         [
                             len(trades),  # Number of Trades
-                            self._results['initial_balance'],  # Initial Balance
+                            # Initial Balance
+                            self._results['initial_balance'],
                             self._results['balance'],  # Final balance
                             # Profit/loss
                             (self._results['balance'] - \
-                            self._results['initial_balance']),
+                             self._results['initial_balance']),
                             (closes.iloc[-1] - closes.iloc[0]) / \
                             closes.iloc[0] * 100,  # Buy/Hold %
                             (self._results['balance'] - self._results['initial_balance']
-                            ) / self._results['initial_balance'] * 100,  # Profit/Loss %
+                             ) / self._results['initial_balance'] * 100,  # Profit/Loss %
                         ]
                     ])
                 )

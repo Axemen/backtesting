@@ -65,14 +65,14 @@ class Strategy(ABC):
         """
         Add an indicator to the strategy
 
-        To be used in __init__ function of subclasses
+        the given function should take in the Strategy.data DataFrame and return a pandas.Series.
+        the returned series will be added as a column to the Strategy.data as the column `name`.
 
         :param name: str
             The name of the indicator
 
         :param indicator: function
-            The indicator function. Should take in the data and return a pandas.Series.
-            the calculated values will be added as a column to the Strategy.data with the column `name`.
+            The indicator function. 
         """
         self._indicator_functions[name] = indicator
 
@@ -178,7 +178,7 @@ class Strategy(ABC):
         self._results['balance'] = balance
         return self._results
 
-    def plot_results(self, filename: str = None, show=False, backend='plotly', plot_indicators=False, plot_table=False) -> None:
+    def plot_results(self, filename: str = None, show=False, backend='plotly', plot_indicators=[], plot_table=False) -> None:
         """
         Plot the results of the backtest.
 
@@ -190,6 +190,14 @@ class Strategy(ABC):
 
         :param backend: str
             The backend to use. Valid options are 'matplotlib' and 'plotly'.
+
+        :param plot_indicators: bool
+            Whether to plot the indicators.
+
+        :param plot_table: list[list[str]]
+            Whether to plot the results table. (Plotly only)
+            ex: [['indicator_1', 'indicator_2'], ['indicator_3', 'indicator_4']]
+            1 and 2 will be plot on the same figure, 3 and 4 on the next figure.
 
         :return: None
         """
@@ -251,18 +259,18 @@ class Strategy(ABC):
 
             num_rows = sum([
                 2,  # Default plots
-                len(self._indicator_functions) if plot_indicators else 0,
+                len(plot_indicators),
                 plot_table,
             ])
+
+            specs = [[{'type': 'xy'}] for _ in range(num_rows)]
+            if plot_table:
+                specs.append([{'type': 'table'}])
 
             fig = make_subplots(rows=num_rows, cols=1, shared_xaxes=False,
                                 subplot_titles=(
                                     'Portfolio Balance', 'Closing Price w/ Trades overlayed'),
-                                specs=[
-                                    [{'type': 'xy'}],
-                                    [{'type': 'xy'}],
-                                    [{'type': 'table'}]
-                                ]
+                                specs=specs
                                 )
 
             # Plot the portfolio balance
@@ -299,33 +307,42 @@ class Strategy(ABC):
                         row=2, col=1
                     )
 
+            # Plot the indicators
+            for row, indicator_set in enumerate(plot_indicators, start=3):
+                for indicator_name in indicator_set:
+                    data = self._viewable_data[indicator_name]
+                    fig.append_trace(
+                        go.Scatter(x=data.index, y=data.values, name=indicator_name), row, 1
+                    )
+
             # Create table showing summary statistics
-            table = go.Table(
-                header=dict(values=['Statistic', 'Value']),
-                cells=dict(values=[
-                    [
-                        "Number of Trades made",
-                        "Initial Balance",
-                        "Final Balance",
-                        "Profit/Loss",
-                        "Buy/Hold %",
-                        "Profit/Loss %"
-                    ],
-                    [
-                        len(trades),  # Number of Trades
-                        self._results['initial_balance'],  # Initial Balance
-                        self._results['balance'],  # Final balance
-                        # Profit/loss
-                        (self._results['balance'] - \
-                         self._results['initial_balance']),
-                        (closes.iloc[-1] - closes.iloc[0]) / \
-                        closes.iloc[0] * 100,  # Buy/Hold %
-                        (self._results['balance'] - self._results['initial_balance']
-                         ) / self._results['initial_balance'] * 100,  # Profit/Loss %
-                    ]
-                ])
-            )
-            fig.append_trace(table, 3, 1)
+            if plot_table:
+                table = go.Table(
+                    header=dict(values=['Statistic', 'Value']),
+                    cells=dict(values=[
+                        [
+                            "Number of Trades made",
+                            "Initial Balance",
+                            "Final Balance",
+                            "Profit/Loss",
+                            "Buy/Hold %",
+                            "Profit/Loss %"
+                        ],
+                        [
+                            len(trades),  # Number of Trades
+                            self._results['initial_balance'],  # Initial Balance
+                            self._results['balance'],  # Final balance
+                            # Profit/loss
+                            (self._results['balance'] - \
+                            self._results['initial_balance']),
+                            (closes.iloc[-1] - closes.iloc[0]) / \
+                            closes.iloc[0] * 100,  # Buy/Hold %
+                            (self._results['balance'] - self._results['initial_balance']
+                            ) / self._results['initial_balance'] * 100,  # Profit/Loss %
+                        ]
+                    ])
+                )
+                fig.append_trace(table, len(num_rows), 1)
 
             fig['layout'].update(title='Backtest Results')
 

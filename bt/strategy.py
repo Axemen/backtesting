@@ -28,7 +28,7 @@ class Strategy(ABC):
         :return: Strategy
             The strategy instance.
         """
-        assert 'close' in data.columns, "data must have a 'close' column"
+        assert "close" in data.columns, "data must have a 'close' column"
 
         self._all_data = data
 
@@ -69,7 +69,7 @@ class Strategy(ABC):
         the returned series will be added as a column to the Strategy.data as the column `name`.
 
         :param indicator: function
-            The indicator function. 
+            The indicator function.
 
         :param name: str
             The name of the indicator column in the data.
@@ -83,10 +83,12 @@ class Strategy(ABC):
         """
         for indicator_name, indicator in self._indicator_functions:
             result = indicator(self._all_data)
-            if isinstance(result, pd.Series):   # if indicator returns a series
+            if isinstance(result, pd.Series):  # if indicator returns a series
                 if indicator_name is None:
                     indicator_name = result.name
-                    assert indicator_name not in self._all_data.columns, "Indicator name already exists"
+                    assert (
+                        indicator_name not in self._all_data.columns
+                    ), "Indicator name already exists"
                 self._all_data[indicator_name] = result
 
             elif isinstance(result, pd.DataFrame):
@@ -94,13 +96,16 @@ class Strategy(ABC):
                     indicator_name = result.columns
 
                     for indicator in result.columns:
-                        assert indicator not in self._all_data.columns, "Indicator name already exists"
+                        assert (
+                            indicator not in self._all_data.columns
+                        ), "Indicator name already exists"
 
                     self._all_data[indicator_name] = result.values
 
             else:
                 raise ValueError(
-                    "Indicator must return a pandas.Series or pandas.DataFrame")
+                    "Indicator must return a pandas.Series or pandas.DataFrame"
+                )
 
     def _update(self, close, index) -> None:
         """
@@ -109,7 +114,7 @@ class Strategy(ABC):
         :param close: float
             The close price of the current bar.
         """
-        self.data.loc[index, 'close'] = close
+        self.data.loc[index, "close"] = close
         self._calculate_indicators()
 
     def get_signal(self) -> Signal:
@@ -133,12 +138,11 @@ class Strategy(ABC):
         # TODO add way to specify how much to buy or sell
         self._backtesting = True
         self._results = {
-            'initial_balance': initial_balance,
-            'balance': initial_balance,
-
+            "initial_balance": initial_balance,
+            "balance": initial_balance,
             # List of trade spans (start_index, end_index, profit)
-            'trades': [],
-            'portfolio_balance': [],  # (index, balance)
+            "trades": [],
+            "portfolio_balance": [],  # (index, balance)
         }
 
         # Calculate the indicators on the initial data
@@ -146,15 +150,15 @@ class Strategy(ABC):
 
         balance = initial_balance
         is_trade_open = False
-        open_trade = {
-            'index': None,
-            'price': None,
-            'num_shares': 0
-        }
+        open_trade = {"index": None, "price": None, "num_shares": 0}
 
-        self._viewable_data = self._all_data.loc[:self._start_index].copy()
+        self._viewable_data = self._all_data.loc[: self._start_index].copy()
 
-        for index, row in tqdm(self._all_data.loc[self._start_index:].iterrows(), disable=not verbose, total=len(self._all_data)):
+        for index, row in tqdm(
+            self._all_data.loc[self._start_index :].iterrows(),
+            disable=not verbose,
+            total=len(self._all_data),
+        ):
             self._viewable_data.loc[index] = row
             # Calculate the signals
             signal = self.get_signal()
@@ -162,39 +166,49 @@ class Strategy(ABC):
             if not is_trade_open:
                 if signal == Signal.BUY:
                     is_trade_open = True
-                    open_trade['index'] = index
-                    open_trade['price'] = row['close']
-                    open_trade['num_shares'] = int(balance / row['close'])
-                    balance -= open_trade['num_shares'] * row['close']
+                    open_trade["index"] = index
+                    open_trade["price"] = row["close"]
+                    open_trade["num_shares"] = int(balance / row["close"])
+                    balance -= open_trade["num_shares"] * row["close"]
 
             elif is_trade_open:
                 if signal == Signal.SELL:
                     is_trade_open = False
-                    self._results['trades'].append((open_trade['index'], index,
-                                                    row['close'] - open_trade['price']))
-                    balance += open_trade['num_shares'] * row['close']
+                    self._results["trades"].append(
+                        (open_trade["index"], index, row["close"] - open_trade["price"])
+                    )
+                    balance += open_trade["num_shares"] * row["close"]
                     open_trade = {}
 
             # Update the portfolio balance
             if is_trade_open:
-                self._results['portfolio_balance'].append((index,
-                                                           balance + (row['close'] * open_trade['num_shares'])))
+                self._results["portfolio_balance"].append(
+                    (index, balance + (row["close"] * open_trade["num_shares"]))
+                )
             else:
-                self._results['portfolio_balance'].append((index, balance))
+                self._results["portfolio_balance"].append((index, balance))
 
         # Sell at end of data
         if is_trade_open:
             is_trade_open = False
-            self._results['trades'].append((open_trade['index'], index,
-                                            row['close'] - open_trade['price']))
-            balance += open_trade['num_shares'] * row['close']
+            self._results["trades"].append(
+                (open_trade["index"], index, row["close"] - open_trade["price"])
+            )
+            balance += open_trade["num_shares"] * row["close"]
             open_trade = {}
 
         self._backtesting = False
-        self._results['balance'] = balance
+        self._results["balance"] = balance
         return self._results
 
-    def plot_results(self, filename: str = None, show=False, backend='plotly', plot_indicators=[], plot_table=False) -> None:
+    def plot_results(
+        self,
+        filename: str = None,
+        show=False,
+        backend="plotly",
+        plot_indicators=[],
+        plot_table=False,
+    ) -> None:
         """
         Plot the results of the backtest.
 
@@ -219,43 +233,50 @@ class Strategy(ABC):
         """
         # Ensure there are backtest results
         assert getattr(
-            self, "_results"), "Backtesting must be run before plotting results"
+            self, "_results"
+        ), "Backtesting must be run before plotting results"
 
-        if backend == 'matplotlib':
+        if backend == "matplotlib":
             import matplotlib.pyplot as plt
 
-            num_rows = sum([
-                2,  # Default plots
-                len(self._indicator_functions) if plot_indicators else 0,
-            ])
+            num_rows = sum(
+                [
+                    2,  # Default plots
+                    len(self._indicator_functions) if plot_indicators else 0,
+                ]
+            )
 
-            fig, axs = plt.subplots(
-                num_rows, 1, sharex=False, figsize=(15, 10))
+            fig, axs = plt.subplots(num_rows, 1, sharex=False, figsize=(15, 10))
 
             fig.tight_layout(h_pad=5)
 
             # Plot the portfolio balance
             axs[0].set_title("Portfolio Balance")
-            portfolio_balance = pd.Series([x[1] for x in self._results['portfolio_balance']], index=[
-                                          x[0] for x in self._results['portfolio_balance']], name='Balance')
+            portfolio_balance = pd.Series(
+                [x[1] for x in self._results["portfolio_balance"]],
+                index=[x[0] for x in self._results["portfolio_balance"]],
+                name="Balance",
+            )
             portfolio_balance.plot(ax=axs[0])
 
             # Plot the trades and the close price
             axs[1].set_title("Closing Price")
-            closes = self._viewable_data['close']
+            closes = self._viewable_data["close"]
             closes.plot(ax=axs[1])
 
-            trades = self._results['trades']
-            axs[1].vlines(x=[x[0] for x in trades], ymin=min(
-                closes), ymax=max(closes), color='b')
-            axs[1].vlines(x=[x[1] for x in trades], ymin=min(
-                closes), ymax=max(closes), color='r')
+            trades = self._results["trades"]
+            axs[1].vlines(
+                x=[x[0] for x in trades], ymin=min(closes), ymax=max(closes), color="b"
+            )
+            axs[1].vlines(
+                x=[x[1] for x in trades], ymin=min(closes), ymax=max(closes), color="r"
+            )
 
             for trade in trades:
                 if trade[2] >= 0:
-                    axs[1].axvspan(trade[0], trade[1], color='g', alpha=0.1)
+                    axs[1].axvspan(trade[0], trade[1], color="g", alpha=0.1)
                 else:
-                    axs[1].axvspan(trade[0], trade[1], color='r', alpha=0.1)
+                    axs[1].axvspan(trade[0], trade[1], color="r", alpha=0.1)
 
             # Plot the indicators
             if plot_indicators:
@@ -265,62 +286,79 @@ class Strategy(ABC):
                     data.plot(ax=axs[i])
 
             if filename:
-                plt.savefig(f'{filename}.png')
+                plt.savefig(f"{filename}.png")
             if show:
                 plt.show()
 
-        elif backend == 'plotly':
+        elif backend == "plotly":
             import plotly.graph_objs as go
             from plotly.subplots import make_subplots
 
-            num_rows = sum([
-                2,  # Default plots
-                len(plot_indicators),
-                plot_table,
-            ])
+            num_rows = sum(
+                [
+                    2,  # Default plots
+                    len(plot_indicators),
+                    plot_table,
+                ]
+            )
 
-            specs = [[{'type': 'xy'}] for _ in range(num_rows)]
+            specs = [[{"type": "xy"}] for _ in range(num_rows)]
             if plot_table:
-                specs.append([{'type': 'table'}])
+                specs.append([{"type": "table"}])
 
-            fig = make_subplots(rows=num_rows, cols=1, shared_xaxes=False,
-                                subplot_titles=(
-                                    'Portfolio Balance', 'Closing Price w/ Trades overlayed'),
-                                specs=specs
-                                )
+            fig = make_subplots(
+                rows=num_rows,
+                cols=1,
+                shared_xaxes=False,
+                subplot_titles=(
+                    "Portfolio Balance",
+                    "Closing Price w/ Trades overlayed",
+                ),
+                specs=specs,
+            )
 
             # Plot the portfolio balance
-            portfolio_balance = go.Scatter(x=[x[0] for x in self._results['portfolio_balance']],
-                                           y=[x[1]
-                                               for x in self._results['portfolio_balance']],
-                                           name='Balance')
+            portfolio_balance = go.Scatter(
+                x=[x[0] for x in self._results["portfolio_balance"]],
+                y=[x[1] for x in self._results["portfolio_balance"]],
+                name="Balance",
+            )
 
             fig.append_trace(portfolio_balance, 1, 1)
 
             # Plot the trades and the close price
-            closes = self._viewable_data['close']
-            close_trace = go.Scatter(
-                x=closes.index, y=closes.values, name='Close')
+            closes = self._viewable_data["close"]
+            close_trace = go.Scatter(x=closes.index, y=closes.values, name="Close")
             fig.append_trace(close_trace, 2, 1)
 
-            trades = self._results['trades']
+            trades = self._results["trades"]
             for trade in trades:
                 if trade[2] >= 0:
                     fig.add_vrect(
-                        x0=trade[0], x1=trade[1],
-                        fillcolor="green", opacity=0.25,
-                        layer="below", line_width=0,
-                        annotation_text="Buy", annotation_position="top left",
-                        row=2, col=1
+                        x0=trade[0],
+                        x1=trade[1],
+                        fillcolor="green",
+                        opacity=0.25,
+                        layer="below",
+                        line_width=0,
+                        annotation_text="Buy",
+                        annotation_position="top left",
+                        row=2,
+                        col=1,
                     )
 
                 else:
                     fig.add_vrect(
-                        x0=trade[0], x1=trade[1],
-                        fillcolor="red", opacity=0.25,
-                        layer="below", line_width=0,
-                        annotation_text="Sell", annotation_position="top left",
-                        row=2, col=1
+                        x0=trade[0],
+                        x1=trade[1],
+                        fillcolor="red",
+                        opacity=0.25,
+                        layer="below",
+                        line_width=0,
+                        annotation_text="Sell",
+                        annotation_position="top left",
+                        row=2,
+                        col=1,
                     )
 
             # Plot the indicators
@@ -328,44 +366,54 @@ class Strategy(ABC):
                 for indicator_name in indicator_set:
                     data = self._viewable_data[indicator_name]
                     fig.append_trace(
-                        go.Scatter(x=data.index, y=data.values,
-                                   name=indicator_name), row, 1
+                        go.Scatter(x=data.index, y=data.values, name=indicator_name),
+                        row,
+                        1,
                     )
 
             # Create table showing summary statistics
             if plot_table:
                 table = go.Table(
-                    header=dict(values=['Statistic', 'Value']),
-                    cells=dict(values=[
-                        [
-                            "Number of Trades made",
-                            "Initial Balance",
-                            "Final Balance",
-                            "Profit/Loss",
-                            "Buy/Hold %",
-                            "Profit/Loss %"
-                        ],
-                        [
-                            len(trades),  # Number of Trades
-                            # Initial Balance
-                            self._results['initial_balance'],
-                            self._results['balance'],  # Final balance
-                            # Profit/loss
-                            (self._results['balance'] - \
-                             self._results['initial_balance']),
-                            (closes.iloc[-1] - closes.iloc[0]) / \
-                            closes.iloc[0] * 100,  # Buy/Hold %
-                            (self._results['balance'] - self._results['initial_balance']
-                             ) / self._results['initial_balance'] * 100,  # Profit/Loss %
+                    header=dict(values=["Statistic", "Value"]),
+                    cells=dict(
+                        values=[
+                            [
+                                "Number of Trades made",
+                                "Initial Balance",
+                                "Final Balance",
+                                "Profit/Loss",
+                                "Buy/Hold %",
+                                "Profit/Loss %",
+                            ],
+                            [
+                                len(trades),  # Number of Trades
+                                # Initial Balance
+                                self._results["initial_balance"],
+                                self._results["balance"],  # Final balance
+                                # Profit/loss
+                                (
+                                    self._results["balance"]
+                                    - self._results["initial_balance"]
+                                ),
+                                (closes.iloc[-1] - closes.iloc[0])
+                                / closes.iloc[0]
+                                * 100,  # Buy/Hold %
+                                (
+                                    self._results["balance"]
+                                    - self._results["initial_balance"]
+                                )
+                                / self._results["initial_balance"]
+                                * 100,  # Profit/Loss %
+                            ],
                         ]
-                    ])
+                    ),
                 )
                 fig.append_trace(table, len(num_rows), 1)
 
-            fig['layout'].update(title='Backtest Results')
+            fig["layout"].update(title="Backtest Results")
 
             if show:
                 fig.show()
 
             if filename:
-                fig.write_html(f'{filename}.html', auto_open=True)
+                fig.write_html(f"{filename}.html", auto_open=True)

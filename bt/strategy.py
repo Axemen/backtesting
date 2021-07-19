@@ -230,6 +230,7 @@ class Strategy(ABC):
         backend="plotly",
         plot_indicators=[],
         plot_table=False,
+        auto_open=False,
     ) -> None:
         """
         Plot the results of the backtest.
@@ -239,6 +240,7 @@ class Strategy(ABC):
 
         :param show: bool
             Whether to show the plot.
+            In plotly this will open a browser.
 
         :param backend: str
             The backend to use. Valid options are 'matplotlib' and 'plotly'.
@@ -250,6 +252,10 @@ class Strategy(ABC):
             Whether to plot the results table. (Plotly only)
             ex: [['indicator_1', 'indicator_2'], ['indicator_3', 'indicator_4']]
             1 and 2 will be plot on the same figure, 3 and 4 on the next figure.
+
+        :param auto_open: bool
+            Whether to open the generated HTML file in a browser.
+            (Plotly only)
 
         :return: None
         """
@@ -365,7 +371,7 @@ class Strategy(ABC):
                         opacity=0.25,
                         layer="below",
                         line_width=0,
-                        annotation_text="Buy",
+                        annotation_text="Profit",
                         annotation_position="top left",
                         row=2,
                         col=1,
@@ -379,7 +385,7 @@ class Strategy(ABC):
                         opacity=0.25,
                         layer="below",
                         line_width=0,
-                        annotation_text="Sell",
+                        annotation_text="Loss",
                         annotation_position="top left",
                         row=2,
                         col=1,
@@ -440,4 +446,4 @@ class Strategy(ABC):
                 fig.show()
 
             if filename:
-                fig.write_html(f"{filename}.html", auto_open=True)
+                fig.write_html(f"{filename}.html", auto_open=auto_open)

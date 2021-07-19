@@ -1,6 +1,8 @@
 from functools import partial
 import sys
 
+sys.path.append("..")
+
 import pandas as pd
 
 from bt import Strategy
@@ -35,7 +37,10 @@ class SMA(Strategy):
         super().__init__(data, start_index)
 
         sma_short = partial(sma, window=10)
-        self.add_indicator("sma_short", sma_short)
+        self.add_indicator(sma_short, "sma_short")
+
+        sma_long = partial(sma, window=30)
+        self.add_indicator(sma_long, "sma_long")
 
     def is_buy(self) -> bool:
         return self.data.sma_short.iloc[-1] > self.data.sma_long.iloc[-1]
@@ -45,11 +50,16 @@ class SMA(Strategy):
 
 
 df = pd.read_csv(
-    "data/aapl.csv", index_col="date", parse_dates=True, infer_datetime_format=True
+    "../data/aapl.csv", index_col="date", parse_dates=True, infer_datetime_format=True
 ).drop(columns="Unnamed: 0")
-# print(df.head())
+
 strat = SMA(df)
 strat.backtest()
 strat.plot_results(
-    "sma", backend="plotly", show=True, plot_indicators=[["sma_short", "sma_long"]]
+    "sma",
+    backend="plotly",
+    show=False,
+    plot_indicators=[["sma_short", "sma_long"]],
+    plot_table=True,
+    auto_open=True,
 )

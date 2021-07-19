@@ -182,7 +182,7 @@ class Strategy(ABC):
             disable=not verbose,
             total=len(self._all_data.loc[self._start_index :]),
         ):
-            self._viewable_data.loc[index] = row
+            self._viewable_data = self._all_data[self._start_index : index]
             # Calculate the signals
             signal = self.get_signal()
 

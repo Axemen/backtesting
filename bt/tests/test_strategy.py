@@ -4,10 +4,12 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from ..strategy import Strategy
+from ..strategy import Strategy, Signal
 from .. import indicators
 
-data = pd.Series(np.random.randn(100), name="close").to_frame()
+data = pd.Series(
+    [np.random.randint(1, 100) for _ in range(100)], name="close"
+).to_frame()
 
 
 class TestStrategy(Strategy):
@@ -18,8 +20,14 @@ class TestStrategy(Strategy):
     def __init__(self, data: pd.Series, start_index=None) -> None:
         super().__init__(data, start_index)
 
-        sma = partial(indicators.sma, window=20)
-        self.add_indicator(sma, name="sma_short")
+        sma_short = partial(indicators.sma, window=20, col="close")
+        self.add_indicator(sma_short, name="sma_short")
+
+        sma_long = partial(indicators.sma, window=50, col="close")
+        self.add_indicator(sma_long, name="sma_long")
+
+        macd = partial(indicators.macd, col="close")
+        self.add_indicator(macd, name="macd")
 
     def is_buy(self) -> bool:
         return self.data.sma_short.iloc[-1] > self.data.sma_long.iloc[-1]
@@ -56,3 +64,39 @@ def test_add_indicator():
     strategy.add_indicator(indicator=sma, name="sma_short")
 
     assert strategy._indicator_functions == [("sma_short", sma)]
+
+
+def test_data():
+    strategy = TestStrategy(data)
+
+    # The data property should show all the data if the strategy is not currently backtesting
+    # Otherwise it will only show the data that is currently viewable to the backtest
+    assert strategy.data.equals(data)
+
+    # When the strategy has viewable data, it should return the viewable data instead
+    # of the full data
+    strategy = TestStrategy(data, start_index=10)
+
+    # Line pulled from Strategy.backtest
+    strategy._viewable_data = strategy._all_data.loc[: strategy._start_index]
+
+    assert strategy.data.equals(strategy._viewable_data)
+
+
+def test_calculate_indicators():
+    strategy = TestStrategy(data)
+
+    # Manually calculate the indicators (This is usually done by the backtest)
+    strategy._calculate_indicators()
+
+    # Ensure that the indicators are calculated correctly
+    values = indicators.sma(data["close"], window=20)
+    assert strategy._all_data.sma_short.equals(values)
+
+    # Ensure that the indicators are named correctly
+    assert strategy.data.sma_short.name == "sma_short"
+
+    # Ensure that the indicators are calculated correctly with a dataframe
+
+    values = indicators.macd(data["close"])
+    assert strategy._all_data[[values.columns]].equals(values)

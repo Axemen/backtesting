@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Union
 
 import pandas as pd
 from tqdm import tqdm
@@ -15,19 +16,28 @@ class Signal(Enum):
 
 class Strategy(ABC):
     """
-    Define a Strategy base class that will be inherited from to define backtesting strategies.
+    Define a Strategy base class that will be inherited from to define
+    backtesting strategies.
     """
 
-    def __init__(self, data: pd.DataFrame, start_index=None):
+    def __init__(self, data: Union[pd.Series, pd.DataFrame], start_index=None):
         """
-        :param data: pandas.Series
+        :param data: pandas.Series | pandas.DataFrame
             The data to use when backtesting the strategy.
+            (If a Series is given, it will be converted to a DataFrame
+            with one column of the name `close`)
+
         :param start_index: int
-            The index to start backtesting from. (Previous data will be used for calculating indicators)
+            The index to start backtesting from.
+            (Previous data will be used for calculating indicators)
+            (Must match the index of the data)
 
         :return: Strategy
             The strategy instance.
         """
+        if isinstance(data, pd.Series):
+            data = data.to_frame(name="close")
+
         assert "close" in data.columns, "data must have a 'close' column"
 
         self._all_data = data
@@ -35,6 +45,12 @@ class Strategy(ABC):
         if start_index is None:
             self._start_index = self._all_data.index[0]
         else:
+            # Ensure the start index is valid
+            if type(start_index) != type(data.index[0]):
+                raise TypeError(
+                    "start_index type must be the same as the index of the data param"
+                )
+
             self._start_index = start_index
 
         self._indicator_functions = []

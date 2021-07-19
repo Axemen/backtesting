@@ -53,15 +53,19 @@ class Strategy(ABC):
 
             self._start_index = start_index
 
+        # TODO change to a dictionary
         self._indicator_functions = []
-        self._backtesting = False
+        self._viewable_data = None
 
     @property
     def data(self) -> pd.DataFrame:
-        if self._backtesting:
-            return self._viewable_data
-        else:
+        """
+        Returns the data of the strategy to be used in backtesting
+        """
+        if getattr(self, "_viewable_data") is None:
             return self._all_data
+
+        return self._viewable_data
 
     @abstractmethod
     def is_buy(self) -> bool:
@@ -91,12 +95,16 @@ class Strategy(ABC):
             The name of the indicator column in the data.
             If not given, the name/columns of the series/dataframe will be used.
         """
+
+        # TODO change _indicator_functions to a dictionary with the key being a prefix to add
+        # before the column names of the indicators if the indicator fn returns a dataframe
         self._indicator_functions.append((name, indicator))
 
     def _calculate_indicators(self) -> None:
         """
         Calculate indicators and add them as columns to the strategy._all_data DataFrame.
         """
+        # TODO adjust to work with a dictionary of indicators instead
         for indicator_name, indicator in self._indicator_functions:
             result = indicator(self._all_data)
             if isinstance(result, pd.Series):  # if indicator returns a series
@@ -123,15 +131,15 @@ class Strategy(ABC):
                     "Indicator must return a pandas.Series or pandas.DataFrame"
                 )
 
-    def _update(self, close, index) -> None:
-        """
-        Update indicators
+    # def _update(self, close, index) -> None:
+    #     """
+    #     Update indicators
 
-        :param close: float
-            The close price of the current bar.
-        """
-        self.data.loc[index, "close"] = close
-        self._calculate_indicators()
+    #     :param close: float
+    #         The close price of the current bar.
+    #     """
+    #     self.data.loc[index, "close"] = close
+    #     self._calculate_indicators()
 
     def get_signal(self) -> Signal:
         """
@@ -152,7 +160,6 @@ class Strategy(ABC):
         """
 
         # TODO add way to specify how much to buy or sell
-        self._backtesting = True
         self._results = {
             "initial_balance": initial_balance,
             "balance": initial_balance,
@@ -168,12 +175,12 @@ class Strategy(ABC):
         is_trade_open = False
         open_trade = {"index": None, "price": None, "num_shares": 0}
 
-        self._viewable_data = self._all_data.loc[: self._start_index].copy()
+        self._viewable_data = self._all_data.loc[: self._start_index]
 
         for index, row in tqdm(
             self._all_data.loc[self._start_index :].iterrows(),
             disable=not verbose,
-            total=len(self._all_data),
+            total=len(self._all_data.loc[self._start_index :]),
         ):
             self._viewable_data.loc[index] = row
             # Calculate the signals
@@ -213,7 +220,6 @@ class Strategy(ABC):
             balance += open_trade["num_shares"] * row["close"]
             open_trade = {}
 
-        self._backtesting = False
         self._results["balance"] = balance
         return self._results
 
@@ -247,6 +253,8 @@ class Strategy(ABC):
 
         :return: None
         """
+        # TODO break up different backends into different functions
+
         # Ensure there are backtest results
         assert getattr(
             self, "_results"

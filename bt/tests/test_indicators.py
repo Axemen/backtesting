@@ -64,15 +64,16 @@ def test_macd():
     macd_ = macd(data)
 
     # macd should be a pandas dataframe
-    assert isinstance(
-        macd_, pd.DataFrame), "macd result should be pd.DataFrame"
+    assert isinstance(macd_, pd.DataFrame), "macd result should be pd.DataFrame"
 
     # macd should be the same length as the input
     assert len(macd_) == len(
         data
     ), "len of macd result should be the same as the initial data"
 
-    assert not macd(data.to_frame(), col="close").empty, "the macd should accept a pandas dataframe for the data param"
+    assert not macd(
+        data.to_frame(), col="close"
+    ).empty, "the macd should accept a pandas dataframe for the data param"
 
     # macd should raise a ValueError if data is a pd.DataFrame and col is not specified
     with pytest.raises(ValueError):

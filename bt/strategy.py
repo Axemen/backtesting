@@ -94,6 +94,7 @@ class Strategy(ABC):
         :param name: str
             The name of the indicator column in the data.
             If not given, the name/columns of the series/dataframe will be used.
+            name is ignored for dataframe indicators.
         """
 
         # TODO change _indicator_functions to a dictionary with the key being a prefix to add
@@ -116,15 +117,14 @@ class Strategy(ABC):
                 self._all_data[indicator_name] = result
 
             elif isinstance(result, pd.DataFrame):
-                if indicator_name is None:
-                    indicator_name = result.columns
+                indicator_name = result.columns
 
-                    for indicator in result.columns:
-                        assert (
-                            indicator not in self._all_data.columns
-                        ), "Indicator name already exists"
+                for indicator in result.columns:
+                    assert (
+                        indicator not in self._all_data.columns
+                    ), "Indicator name already exists"
 
-                    self._all_data[indicator_name] = result.values
+                self._all_data[indicator_name] = result.values
 
             else:
                 raise ValueError(

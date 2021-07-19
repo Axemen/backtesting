@@ -322,13 +322,13 @@ class Strategy(ABC):
                 [
                     2,  # Default plots
                     len(plot_indicators),
-                    plot_table,
                 ]
             )
 
             specs = [[{"type": "xy"}] for _ in range(num_rows)]
             if plot_table:
                 specs.append([{"type": "table"}])
+                num_rows += 1
 
             fig = make_subplots(
                 rows=num_rows,
@@ -432,7 +432,7 @@ class Strategy(ABC):
                         ]
                     ),
                 )
-                fig.append_trace(table, len(num_rows), 1)
+                fig.append_trace(table, num_rows, 1)
 
             fig["layout"].update(title="Backtest Results")
 

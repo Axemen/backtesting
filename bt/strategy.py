@@ -234,24 +234,16 @@ class Strategy(ABC):
         :param filename: str
             The filename to save the plot to. If None, the plot will not be saved.
 
-        :param show: bool
-            Whether to show the plot.
-            In plotly this will open a browser.
-
-        :param backend: str
-            The backend to use. Valid options are 'matplotlib' and 'plotly'.
-
         :param plot_indicators: bool
             Whether to plot the indicators.
-
-        :param plot_table: list[list[str]]
-            Whether to plot the results table. (Plotly only)
             ex: [['indicator_1', 'indicator_2'], ['indicator_3', 'indicator_4']]
             1 and 2 will be plot on the same figure, 3 and 4 on the next figure.
 
+        :param plot_table: list[list[str]]
+            Whether to plot the results table. (Plotly only)
+
         :param auto_open: bool
             Whether to open the generated HTML file in a browser.
-            (Plotly only)
 
         :return: None
         """
@@ -262,182 +254,124 @@ class Strategy(ABC):
             self, "_results"
         ), "Backtesting must be run before plotting results"
 
-        if backend == "matplotlib":
-            import matplotlib.pyplot as plt
+        import plotly.graph_objs as go
+        from plotly.subplots import make_subplots
 
-            num_rows = sum(
-                [
-                    2,  # Default plots
-                    len(self._indicator_functions) if plot_indicators else 0,
-                ]
-            )
+        num_rows = sum(
+            [
+                2,  # Default plots
+                len(plot_indicators),
+            ]
+        )
 
-            fig, axs = plt.subplots(num_rows, 1, sharex=False, figsize=(15, 10))
+        specs = [[{"type": "xy"}] for _ in range(num_rows)]
+        if plot_table:
+            specs.append([{"type": "table"}])
+            num_rows += 1
 
-            fig.tight_layout(h_pad=5)
+        fig = make_subplots(
+            rows=num_rows,
+            cols=1,
+            shared_xaxes=False,
+            subplot_titles=(
+                "Portfolio Balance",
+                "Closing Price w/ Trades overlayed",
+            ),
+            specs=specs,
+        )
 
-            # Plot the portfolio balance
-            axs[0].set_title("Portfolio Balance")
-            portfolio_balance = pd.Series(
-                [x[1] for x in self._results["portfolio_balance"]],
-                index=[x[0] for x in self._results["portfolio_balance"]],
-                name="Balance",
-            )
-            portfolio_balance.plot(ax=axs[0])
+        # Plot the portfolio balance
+        portfolio_balance = go.Scatter(
+            x=[x[0] for x in self._results["portfolio_balance"]],
+            y=[x[1] for x in self._results["portfolio_balance"]],
+            name="Balance",
+        )
 
-            # Plot the trades and the close price
-            axs[1].set_title("Closing Price")
-            closes = self._viewable_data["close"]
-            closes.plot(ax=axs[1])
+        fig.append_trace(portfolio_balance, 1, 1)
 
-            trades = self._results["trades"]
-            axs[1].vlines(
-                x=[x[0] for x in trades], ymin=min(closes), ymax=max(closes), color="b"
-            )
-            axs[1].vlines(
-                x=[x[1] for x in trades], ymin=min(closes), ymax=max(closes), color="r"
-            )
+        # Plot the trades and the close price
+        closes = self._viewable_data["close"]
+        close_trace = go.Scatter(x=closes.index, y=closes.values, name="Close")
+        fig.append_trace(close_trace, 2, 1)
 
-            for trade in trades:
-                if trade[2] >= 0:
-                    axs[1].axvspan(trade[0], trade[1], color="g", alpha=0.1)
-                else:
-                    axs[1].axvspan(trade[0], trade[1], color="r", alpha=0.1)
-
-            # Plot the indicators
-            if plot_indicators:
-                for i, indicator_name in enumerate(self._indicator_functions, start=2):
-                    data = self._viewable_data[indicator_name]
-                    axs[i].set_title(indicator_name)
-                    data.plot(ax=axs[i])
-
-            if filename:
-                plt.savefig(f"{filename}.png")
-            if show:
-                plt.show()
-
-        elif backend == "plotly":
-            import plotly.graph_objs as go
-            from plotly.subplots import make_subplots
-
-            num_rows = sum(
-                [
-                    2,  # Default plots
-                    len(plot_indicators),
-                ]
-            )
-
-            specs = [[{"type": "xy"}] for _ in range(num_rows)]
-            if plot_table:
-                specs.append([{"type": "table"}])
-                num_rows += 1
-
-            fig = make_subplots(
-                rows=num_rows,
-                cols=1,
-                shared_xaxes=False,
-                subplot_titles=(
-                    "Portfolio Balance",
-                    "Closing Price w/ Trades overlayed",
-                ),
-                specs=specs,
-            )
-
-            # Plot the portfolio balance
-            portfolio_balance = go.Scatter(
-                x=[x[0] for x in self._results["portfolio_balance"]],
-                y=[x[1] for x in self._results["portfolio_balance"]],
-                name="Balance",
-            )
-
-            fig.append_trace(portfolio_balance, 1, 1)
-
-            # Plot the trades and the close price
-            closes = self._viewable_data["close"]
-            close_trace = go.Scatter(x=closes.index, y=closes.values, name="Close")
-            fig.append_trace(close_trace, 2, 1)
-
-            trades = self._results["trades"]
-            for trade in trades:
-                if trade[2] >= 0:
-                    fig.add_vrect(
-                        x0=trade[0],
-                        x1=trade[1],
-                        fillcolor="green",
-                        opacity=0.25,
-                        layer="below",
-                        line_width=0,
-                        annotation_text="Profit",
-                        annotation_position="top left",
-                        row=2,
-                        col=1,
-                    )
-
-                else:
-                    fig.add_vrect(
-                        x0=trade[0],
-                        x1=trade[1],
-                        fillcolor="red",
-                        opacity=0.25,
-                        layer="below",
-                        line_width=0,
-                        annotation_text="Loss",
-                        annotation_position="top left",
-                        row=2,
-                        col=1,
-                    )
-
-            # Plot the indicators
-            for row, indicator_set in enumerate(plot_indicators, start=3):
-                for indicator_name in indicator_set:
-                    data = self._viewable_data[indicator_name]
-                    fig.append_trace(
-                        go.Scatter(x=data.index, y=data.values, name=indicator_name),
-                        row,
-                        1,
-                    )
-
-            # Create table showing summary statistics
-            if plot_table:
-                table = go.Table(
-                    header=dict(values=["Statistic", "Value"]),
-                    cells=dict(
-                        values=[
-                            [
-                                "Number of Trades made",
-                                "Initial Balance",
-                                "Final Balance",
-                                "Profit/Loss",
-                                "Buy/Hold %",
-                                "Profit/Loss %",
-                            ],
-                            [
-                                len(trades),  # Number of Trades
-                                # Initial Balance
-                                self._results["initial_balance"],
-                                self._results["balance"],  # Final balance
-                                # Profit/loss
-                                (
-                                    self._results["balance"]
-                                    - self._results["initial_balance"]
-                                ),
-                                pct_change(
-                                    closes.iloc[0], closes.iloc[-1]
-                                ),  # Buy/Hold %
-                                pct_change(
-                                    self._results["initial_balance"],
-                                    self._results["balance"],
-                                ),  # Profit/Loss %
-                            ],
-                        ]
-                    ),
+        trades = self._results["trades"]
+        for trade in trades:
+            if trade[2] >= 0:
+                fig.add_vrect(
+                    x0=trade[0],
+                    x1=trade[1],
+                    fillcolor="green",
+                    opacity=0.25,
+                    layer="below",
+                    line_width=0,
+                    annotation_text="Profit",
+                    annotation_position="top left",
+                    row=2,
+                    col=1,
                 )
-                fig.append_trace(table, num_rows, 1)
 
-            fig["layout"].update(title="Backtest Results")
+            else:
+                fig.add_vrect(
+                    x0=trade[0],
+                    x1=trade[1],
+                    fillcolor="red",
+                    opacity=0.25,
+                    layer="below",
+                    line_width=0,
+                    annotation_text="Loss",
+                    annotation_position="top left",
+                    row=2,
+                    col=1,
+                )
 
-            if show:
-                fig.show()
+        # Plot the indicators
+        for row, indicator_set in enumerate(plot_indicators, start=3):
+            for indicator_name in indicator_set:
+                data = self._viewable_data[indicator_name]
+                fig.append_trace(
+                    go.Scatter(x=data.index, y=data.values, name=indicator_name),
+                    row,
+                    1,
+                )
 
-            if filename:
-                fig.write_html(f"{filename}.html", auto_open=auto_open)
+        # Create table showing summary statistics
+        if plot_table:
+            table = go.Table(
+                header=dict(values=["Statistic", "Value"]),
+                cells=dict(
+                    values=[
+                        [
+                            "Number of Trades made",
+                            "Initial Balance",
+                            "Final Balance",
+                            "Profit/Loss",
+                            "Buy/Hold %",
+                            "Profit/Loss %",
+                        ],
+                        [
+                            len(trades),  # Number of Trades
+                            # Initial Balance
+                            self._results["initial_balance"],
+                            self._results["balance"],  # Final balance
+                            # Profit/loss
+                            (
+                                self._results["balance"]
+                                - self._results["initial_balance"]
+                            ),
+                            pct_change(closes.iloc[0], closes.iloc[-1]),  # Buy/Hold %
+                            pct_change(
+                                self._results["initial_balance"],
+                                self._results["balance"],
+                            ),  # Profit/Loss %
+                        ],
+                    ]
+                ),
+            )
+            fig.append_trace(table, num_rows, 1)
+
+        fig["layout"].update(title="Backtest Results")
+
+        if filename:
+            fig.write_html(f"{filename}.html", auto_open=auto_open)
+
+        return fig

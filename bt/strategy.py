@@ -7,6 +7,8 @@ from typing import Union
 import pandas as pd
 from tqdm import tqdm
 
+from .util import pct_change
+
 
 class Signal(Enum):
     BUY = 1
@@ -415,15 +417,13 @@ class Strategy(ABC):
                                     self._results["balance"]
                                     - self._results["initial_balance"]
                                 ),
-                                (closes.iloc[-1] - closes.iloc[0])
-                                / closes.iloc[0]
-                                * 100,  # Buy/Hold %
-                                (
-                                    self._results["balance"]
-                                    - self._results["initial_balance"]
-                                )
-                                / self._results["initial_balance"]
-                                * 100,  # Profit/Loss %
+                                pct_change(
+                                    closes.iloc[0], closes.iloc[-1]
+                                ),  # Buy/Hold %
+                                pct_change(
+                                    self._results["initial_balance"],
+                                    self._results["balance"],
+                                ),  # Profit/Loss %
                             ],
                         ]
                     ),

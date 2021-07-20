@@ -6,6 +6,7 @@ import pandas as pd
 
 from ..strategy import Strategy, Signal
 from .. import indicators
+from bt import strategy
 
 data = pd.Series(
     [np.random.randint(1, 100) for _ in range(100)], name="close"
@@ -124,3 +125,26 @@ def test_get_signal():
     data = pd.Series([1, 1, 1])
     strategy = TestStrategy(data)
     assert strategy.get_signal() == Signal.HOLD
+
+
+def test_backtest():
+    strategy = TestStrategy(data, start_index=30)
+
+    results = strategy.backtest(initial_balance=1000)
+
+    # Check the results exist
+    assert results
+
+    # Check that the proper keys exist in the results
+    keys = ["initial_balance", "balance", "trades", "portfolio_balance"]
+    for key in keys:
+        assert key in results
+
+    # Check that the initial_balance is correct
+    assert results["initial_balance"] == 1000
+
+    # make sure that the len of porfolio_balance is equal to the len of the data
+    # being backtested over
+    assert len(results["portfolio_balance"]) == len(
+        strategy._all_data[strategy._start_index :]
+    )

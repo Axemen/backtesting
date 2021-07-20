@@ -111,7 +111,9 @@ class Strategy(ABC):
         """
         # TODO adjust to work with a dictionary of indicators instead
         for indicator_name, indicator in self._indicator_functions:
+
             result = indicator(self._all_data)
+
             if isinstance(result, pd.Series):  # if indicator returns a series
                 if indicator_name is None:
                     indicator_name = result.name
@@ -123,10 +125,9 @@ class Strategy(ABC):
             elif isinstance(result, pd.DataFrame):
                 indicator_name = result.columns
 
-                for indicator in result.columns:
-                    assert (
-                        indicator not in self._all_data.columns
-                    ), "Indicator name already exists"
+                for name in result.columns:
+                    if name in self._all_data.columns:
+                        raise ValueError(f"Indicator name already exists: {name}")
 
                 self._all_data[indicator_name] = result.values
 
@@ -227,7 +228,7 @@ class Strategy(ABC):
         plot_indicators=[],
         plot_table=False,
         auto_open=False,
-    ) -> None:
+    ) -> go.Figure:
         """
         Plot the results of the backtest.
 
@@ -248,9 +249,8 @@ class Strategy(ABC):
         :return: None
         """
         # Ensure there are backtest results
-        assert getattr(
-            self, "_results"
-        ), "Backtesting must be run before plotting results"
+        if not getattr(self, "_results", False):
+            raise ValueError("Backtesting must be run before plotting results")
 
         num_rows = sum(
             [
@@ -282,12 +282,12 @@ class Strategy(ABC):
             name="Balance",
         )
 
-        fig.append_trace(portfolio_balance, 1, 1)
+        fig.add_trace(portfolio_balance, 1, 1)
 
         # Plot the trades and the close price
         closes = self._viewable_data["close"]
         close_trace = go.Scatter(x=closes.index, y=closes.values, name="Close")
-        fig.append_trace(close_trace, 2, 1)
+        fig.add_trace(close_trace, 2, 1)
 
         trades = self._results["trades"]
         for trade in trades:
@@ -323,7 +323,7 @@ class Strategy(ABC):
         for row, indicator_set in enumerate(plot_indicators, start=3):
             for indicator_name in indicator_set:
                 data = self._viewable_data[indicator_name]
-                fig.append_trace(
+                fig.add_trace(
                     go.Scatter(x=data.index, y=data.values, name=indicator_name),
                     row,
                     1,
@@ -362,7 +362,7 @@ class Strategy(ABC):
                     ]
                 ),
             )
-            fig.append_trace(table, num_rows, 1)
+            fig.add_trace(table, num_rows, 1)
 
         fig["layout"].update(title="Backtest Results")
 

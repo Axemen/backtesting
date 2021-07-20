@@ -224,8 +224,6 @@ class Strategy(ABC):
     def plot_results(
         self,
         filename: str = None,
-        show=False,
-        backend="plotly",
         plot_indicators=[],
         plot_table=False,
         auto_open=False,

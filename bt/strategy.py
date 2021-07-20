@@ -131,16 +131,6 @@ class Strategy(ABC):
                     "Indicator must return a pandas.Series or pandas.DataFrame"
                 )
 
-    # def _update(self, close, index) -> None:
-    #     """
-    #     Update indicators
-
-    #     :param close: float
-    #         The close price of the current bar.
-    #     """
-    #     self.data.loc[index, "close"] = close
-    #     self._calculate_indicators()
-
     def get_signal(self) -> Signal:
         """
         Return the signal of the strategy

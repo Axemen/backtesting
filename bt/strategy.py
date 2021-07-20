@@ -247,8 +247,6 @@ class Strategy(ABC):
 
         :return: None
         """
-        # TODO break up different backends into different functions
-
         # Ensure there are backtest results
         assert getattr(
             self, "_results"

@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Union
 
 import pandas as pd
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 from tqdm import tqdm
 
 from .util import pct_change
@@ -253,9 +255,6 @@ class Strategy(ABC):
         assert getattr(
             self, "_results"
         ), "Backtesting must be run before plotting results"
-
-        import plotly.graph_objs as go
-        from plotly.subplots import make_subplots
 
         num_rows = sum(
             [

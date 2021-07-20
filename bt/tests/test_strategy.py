@@ -99,4 +99,4 @@ def test_calculate_indicators():
     # Ensure that the indicators are calculated correctly with a dataframe
 
     values = indicators.macd(data["close"])
-    assert strategy._all_data[[values.columns]].equals(values)
+    assert strategy._all_data[values.columns].equals(values)

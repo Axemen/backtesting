@@ -100,3 +100,27 @@ def test_calculate_indicators():
 
     values = indicators.macd(data["close"])
     assert strategy._all_data[values.columns].equals(values)
+
+
+def test_get_signal():
+    class TestStrategy(Strategy):
+        def __init__(self, data: pd.Series, start_index=None) -> None:
+            super().__init__(data, start_index)
+
+        def is_buy(self) -> bool:
+            return self.data.close.iloc[-1] > self.data.close.iloc[-2]
+
+        def is_sell(self) -> bool:
+            return self.data.close.iloc[-1] < self.data.close.iloc[-2]
+
+    data = pd.Series([1, 2, 3])
+    strategy = TestStrategy(data)
+    assert strategy.get_signal() == Signal.BUY
+
+    data = pd.Series([3, 2, 1])
+    strategy = TestStrategy(data)
+    assert strategy.get_signal() == Signal.SELL
+
+    data = pd.Series([1, 1, 1])
+    strategy = TestStrategy(data)
+    assert strategy.get_signal() == Signal.HOLD

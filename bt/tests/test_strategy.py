@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Tuple
 import os
 
 import pytest
@@ -39,7 +40,7 @@ class ExampleStrategy(Strategy):
 
 
 @pytest.fixture(scope="function")
-def strategy():
+def strategy() -> Tuple[Strategy, pd.Series]:
     data = pd.Series(
         [np.random.randint(1, 100) for _ in range(100)], name="close"
     ).to_frame()
@@ -161,7 +162,7 @@ def test_backtest(strategy):
     )
 
 
-def test_plot_results(strategy):
+def test_plot_results(strategy: Tuple[Strategy, pd.Series]):
     strat, data = strategy
 
     # This should raise a ValueError if the strategy has not been backtested
@@ -176,3 +177,17 @@ def test_plot_results(strategy):
     # Should return a plotly figure
     fig = strat.plot_results()
     assert isinstance(fig, go.Figure)
+
+    # Should create an html file
+    strat.plot_results(filename="test")
+    assert os.path.exists("test.html")
+    os.remove("test.html")  # Clean up
+
+    # Should create an extra trace with the sma_short and sma_long indicators
+    strat.plot_results(plot_indicators=[["sma_short", "sma_long"]], show=True)
+
+    strat.plot_results(plot_table=True, show=True)
+
+    strat.plot_results(
+        plot_table=True, plot_indicators=[["sma_short", "sma_long"]], show=True
+    )

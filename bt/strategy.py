@@ -174,6 +174,10 @@ class Strategy(ABC):
             disable=not verbose,
             total=len(self._all_data.loc[self._start_index :]),
         ):
+            if self._start_index == index:
+                # No visible data if they're the same
+                self._results["portfolio_balance"].append((index, balance))
+                continue
             self._viewable_data = self._all_data[self._start_index : index]
             # Calculate the signals
             signal = self.get_signal()

@@ -15,19 +15,6 @@ def sma(data: pd.DataFrame, window: int) -> pd.Series:
     return data["close"].rolling(window).mean()
 
 
-def macd(
-    data: pd.DataFrame, short_window=12, long_window=26, signal_window=9
-) -> pd.Series:
-    """
-    Moving average convergence/divergence
-    """
-    short_sma = data["close"].ewm(span=short_window).mean()
-    long_sma = data["close"].ewm(span=long_window).mean()
-    macd = short_sma - long_sma
-    signal = macd.ewm(span=signal_window).mean()
-    return pd.DataFrame(macd, name="macd")
-
-
 class SMA(Strategy):
     """
     A Simple moving average strategy example

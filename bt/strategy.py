@@ -228,6 +228,7 @@ class Strategy(ABC):
         plot_indicators=[],
         plot_table=False,
         auto_open=False,
+        show=False,
     ) -> go.Figure:
         """
         Plot the results of the backtest.
@@ -245,6 +246,10 @@ class Strategy(ABC):
 
         :param auto_open: bool
             Whether to open the generated HTML file in a browser.
+
+        :param show: bool
+            Whether to display the plot in a Jupyter notebook.
+            Will open a webserver if running in a script
 
         :return: None
         """
@@ -368,5 +373,8 @@ class Strategy(ABC):
 
         if filename:
             fig.write_html(f"{filename}.html", auto_open=auto_open)
+
+        if show:
+            fig.show()
 
         return fig
